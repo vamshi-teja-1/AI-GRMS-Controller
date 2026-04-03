@@ -1,35 +1,49 @@
 class Gemma4Edge:
     """
-    Simulates the local Gemma 4 AI processing complex room states
-    to optimize comfort and energy usage.
+    Gemma 4 Edge AI simulating contextual comfort and predictive energy management.
     """
+
     def analyze_and_predict(self, state):
-        print("[GEMMA 4] Analyzing room state vectors...")
+        print("[GEMMA 4 INFERENCE] Analyzing multi-dimensional room state...")
         commands = {}
 
-        # Scenario 1: Guest just left the room (Key card removed)
+        # 1. Vacancy Check (Priority 1)
         if not state["key_card"]:
-            print("[GEMMA 4 DECISION] Room is vacant. Engaging deep energy saving mode.")
+            print("[GEMMA 4 DECISION] Room vacant. Engaging deep energy saving mode.")
             commands["ac"] = "OFF"
+            commands["vfd"] = 0.0
             commands["lights"] = {"bed": "OFF", "ceiling": "OFF", "bathroom": "OFF"}
             return commands
 
-        # Scenario 2: Guest is in the room, but the window is open
+        # 2. Open Window Check (Priority 2)
         if state["window"]:
-            print("[GEMMA 4 DECISION] Window contact open. Disabling AC to prevent energy waste.")
+            print("[GEMMA 4 DECISION] Window open. Disabling AC. Running VFD fan low for circulation.")
             commands["ac"] = "OFF"
-            commands["lights"] = {"ceiling": "ON"} # Keep lights on, they are in the room
+            commands["vfd"] = 2.0
+
+            # Smart Lighting: Only turn on lights if the room is dark (Lux < 200)
+            if state["lux"] < 200:
+                commands["lights"] = {"ceiling": "ON"}
+            else:
+                commands["lights"] = {"ceiling": "OFF"}
             return commands
 
-        # Scenario 3: Standard active room climate control
-        if state["current_temp"] > state["target_temp"]:
-            print("[GEMMA 4 DECISION] Cooling required. Optimizing AC via RS-485 network.")
+        # 3. Climate & Air Quality Optimization (Active Room)
+        commands["lights"] = {"ceiling": "ON"}  # Default active lighting
+
+        if state["iaq"] > 80:
+            print("[GEMMA 4 DECISION] Poor Indoor Air Quality detected. Maximizing VFD ventilation.")
+            commands["ac"] = "VENTILATION_MODE"
+            commands["vfd"] = 10.0  # Max 10V signal
+            return commands
+
+        if state["temp"] > state["target"] or state["humidity"] > 65:
+            print("[GEMMA 4 DECISION] Cooling/Dehumidification required. Adjusting proportional valves.")
             commands["ac"] = "COOLING_MODE"
+            commands["vfd"] = 7.5  # Medium-High fan speed
         else:
-            print("[GEMMA 4 DECISION] Optimal temperature reached. AC to standby.")
+            print("[GEMMA 4 DECISION] Optimal climate reached. Maintaining steady state.")
             commands["ac"] = "STANDBY"
-            
-        # Ensure default lighting if card is in
-        commands["lights"] = {"ceiling": "ON", "bathroom": "OFF", "bed": "OFF"}
+            commands["vfd"] = 3.0  # Low background circulation
 
         return commands
